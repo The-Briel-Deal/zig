@@ -6437,6 +6437,8 @@ pub fn addCCArgs(
         try argv.appendSlice(&[_][]const u8{ "-MD", "-MV", "-MF", p });
     }
 
+    try argv.appendSlice(mod.cc_argv);
+
     // Non-preprocessed assembly files don't support these flags.
     if (ext != .assembly) {
         try argv.append(if (target.os.tag == .freestanding) "-ffreestanding" else "-fhosted");
@@ -6813,7 +6815,6 @@ pub fn addCCArgs(
     }
 
     try argv.appendSlice(comp.global_cc_argv);
-    try argv.appendSlice(mod.cc_argv);
 }
 
 fn failCObj(
