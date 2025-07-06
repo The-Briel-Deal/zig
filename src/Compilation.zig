@@ -6818,6 +6818,49 @@ pub fn addCCArgs(
     }
 }
 
+test "addCCArgs" {
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
+    var arena = std.heap.ArenaAllocator.init(gpa.allocator());
+
+    var sub_path = [_]u8{ '/', 'f', 'o', 'o' };
+
+    const mod = try Package.Module.create(
+        arena.allocator(),
+        .{
+            .cc_argv = &[_][]const u8{
+                "-isystem",
+                "/include/from/cc_argv",
+            },
+            .paths = .{
+                .root = .{
+                    .root = .none,
+                    .sub_path = &sub_path,
+                },
+                .root_src_path = "foo.c",
+            },
+            .fully_qualified_name = "foo",
+            .global = try .resolve(Config.Options{
+                .emit_bin = false,
+                .have_zcu = false,
+                .is_test = true,
+            }),
+            .inherited = .{},
+            .parent = .null,
+        },
+    );
+
+    const comp = try Compilation.create(gpa, arena, .{
+        .c_source_files = .{
+            CSourceFile{ .src_path = "/foo/bar", .owner = mod },
+        },
+        .clang_passthrough_mode = true,
+    });
+
+    const argv: std.ArrayList([]const u8) = .init(arena);
+    comp.addCCArgs(arena, &argv, .c, null, mod);
+    std.testing.expectEqual(argv.items, .{"foo"});
+}
+
 fn failCObj(
     comp: *Compilation,
     c_object: *CObject,
