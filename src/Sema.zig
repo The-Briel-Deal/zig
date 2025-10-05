@@ -6488,11 +6488,24 @@ fn addDbgVar(
         .dbg_var_val, .dbg_arg_inline => operand_ty,
         else => unreachable,
     };
-    if (try val_ty.comptimeOnlySema(pt)) {
+    // Allow comptime-only types like comptime_int to have debug info generated.
+    // The DWARF backend supports these via refValue() for has_comptime_state.
+    // However, some backends may not support all comptime-only types yet.
+    const is_comptime_only = try val_ty.comptimeOnlySema(pt);
+    const has_runtime_bits = try val_ty.hasRuntimeBitsSema(pt);
+
+    // For now, we allow comptime_int and comptime_float to pass through for DWARF support.
+    // Other comptime-only types are still filtered out.
+    const allow_comptime_debug_info = switch (val_ty.zigTypeTag(zcu)) {
+        .comptime_int, .comptime_float => true,
+        else => false,
+    };
+
+    if (is_comptime_only and !allow_comptime_debug_info) {
         std.log.warn("addDbgVar: '{s}' - skipped (type is comptime-only: {f})", .{name, val_ty.fmt(pt)});
         return;
     }
-    if (!(try val_ty.hasRuntimeBitsSema(pt))) {
+    if (!has_runtime_bits and !is_comptime_only) {
         std.log.warn("addDbgVar: '{s}' - skipped (type has no runtime bits: {f})", .{name, val_ty.fmt(pt)});
         return;
     }
