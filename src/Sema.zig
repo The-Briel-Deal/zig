@@ -6475,7 +6475,10 @@ fn addDbgVar(
     air_tag: Air.Inst.Tag,
     name: []const u8,
 ) CompileError!void {
-    if (block.isComptime() or block.ownerModule().strip) return;
+    if (block.isComptime() or block.ownerModule().strip) {
+        std.log.warn("addDbgVar: '{s}' - skipped (comptime block or strip enabled)", .{name});
+        return;
+    }
 
     const pt = sema.pt;
     const zcu = pt.zcu;
@@ -6485,10 +6488,19 @@ fn addDbgVar(
         .dbg_var_val, .dbg_arg_inline => operand_ty,
         else => unreachable,
     };
-    if (try val_ty.comptimeOnlySema(pt)) return;
-    if (!(try val_ty.hasRuntimeBitsSema(pt))) return;
+    if (try val_ty.comptimeOnlySema(pt)) {
+        std.log.warn("addDbgVar: '{s}' - skipped (type is comptime-only: {f})", .{name, val_ty.fmt(pt)});
+        return;
+    }
+    if (!(try val_ty.hasRuntimeBitsSema(pt))) {
+        std.log.warn("addDbgVar: '{s}' - skipped (type has no runtime bits: {f})", .{name, val_ty.fmt(pt)});
+        return;
+    }
     if (try sema.resolveValue(operand)) |operand_val| {
-        if (operand_val.canMutateComptimeVarState(zcu)) return;
+        if (operand_val.canMutateComptimeVarState(zcu)) {
+            std.log.warn("addDbgVar: '{s}' - skipped (can mutate comptime var state)", .{name});
+            return;
+        }
     }
 
     // To ensure the lexical scoping is known to backends, this alloc must be
@@ -6510,6 +6522,8 @@ fn addDbgVar(
             .operand = operand,
         } },
     });
+
+    std.log.warn("addDbgVar: '{s}' - ADDED (tag: {s}, type: {f})", .{name, @tagName(air_tag), val_ty.fmt(pt)});
 }
 
 pub fn appendAirString(sema: *Sema, str: []const u8) Allocator.Error!Air.NullTerminatedString {
