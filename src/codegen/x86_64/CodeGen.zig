@@ -89080,34 +89080,61 @@ fn genBody(cg: *CodeGen, body: []const Air.Inst.Index) InnerError!void {
                     .dbg_var_ptr => op_ty.childType(zcu),
                     .dbg_var_val, .dbg_arg_inline => op_ty,
                 };
-                var ops = try cg.tempsFromOperands(inst, .{pl_op.operand});
-                var mcv = ops[0].tracking(cg).short;
-                switch (mcv) {
-                    else => {},
-                    .eflags => |cc| switch (cc) {
+
+                // For comptime-only types (like comptime_int), we don't try to lower them to
+                // machine code values since they have no runtime representation. Instead, we
+                // extract the comptime value and pass it as an immediate for debug info.
+                const is_comptime_only = local_ty.comptimeOnly(zcu);
+                if (is_comptime_only) {
+                    try cg.mir_locals.append(cg.gpa, .{
+                        .name = switch (air_name) {
+                            .none => switch (air_tag) {
+                                else => unreachable,
+                                .dbg_arg_inline => .none,
+                            },
+                            else => try cg.addString(air_name.toSlice(cg.air)),
+                        },
+                        .type = local_ty.toIntern(),
+                    });
+                    // Try to extract the comptime value as an immediate for debug info
+                    if (try cg.air.value(pl_op.operand, pt)) |val| {
+                        // For comptime_int, try to get the value as a u64
+                        if (val.getUnsignedInt(zcu)) |int_val| {
+                            try cg.genLocalDebugInfo(air_tag, local_ty, .{ .immediate = int_val });
+                        }
+                        // If value is too large to fit in u64, skip debug info for now
+                        // TODO: support arbitrary precision integers in debug info
+                    }
+                } else {
+                    var ops = try cg.tempsFromOperands(inst, .{pl_op.operand});
+                    var mcv = ops[0].tracking(cg).short;
+                    switch (mcv) {
                         else => {},
-                        // These values would self destruct. Maybe we make them use their
-                        // turing complete dwarf expression interpreters for once?
-                        .z_and_np, .nz_or_p => {
-                            try cg.spillEflagsIfOccupied();
-                            mcv = ops[0].tracking(cg).short;
+                        .eflags => |cc| switch (cc) {
+                            else => {},
+                            // These values would self destruct. Maybe we make them use their
+                            // turing complete dwarf expression interpreters for once?
+                            .z_and_np, .nz_or_p => {
+                                try cg.spillEflagsIfOccupied();
+                                mcv = ops[0].tracking(cg).short;
+                            },
                         },
-                    },
+                    }
+
+                    try cg.mir_locals.append(cg.gpa, .{
+                        .name = switch (air_name) {
+                            .none => switch (air_tag) {
+                                else => unreachable,
+                                .dbg_arg_inline => .none,
+                            },
+                            else => try cg.addString(air_name.toSlice(cg.air)),
+                        },
+                        .type = local_ty.toIntern(),
+                    });
+
+                    try cg.genLocalDebugInfo(air_tag, local_ty, ops[0].tracking(cg).short);
+                    try ops[0].die(cg);
                 }
-
-                try cg.mir_locals.append(cg.gpa, .{
-                    .name = switch (air_name) {
-                        .none => switch (air_tag) {
-                            else => unreachable,
-                            .dbg_arg_inline => .none,
-                        },
-                        else => try cg.addString(air_name.toSlice(cg.air)),
-                    },
-                    .type = local_ty.toIntern(),
-                });
-
-                try cg.genLocalDebugInfo(air_tag, local_ty, ops[0].tracking(cg).short);
-                try ops[0].die(cg);
             },
             .is_null => {
                 const un_op = air_datas[@intFromEnum(inst)].un_op;
