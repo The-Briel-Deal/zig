@@ -6476,7 +6476,7 @@ fn addDbgVar(
     name: []const u8,
 ) CompileError!void {
     if (block.isComptime() or block.ownerModule().strip) {
-        std.log.warn("addDbgVar: '{s}' - skipped (comptime block or strip enabled)", .{name});
+        log.debug("addDbgVar: '{s}' - skipped (comptime block or strip enabled)", .{name});
         return;
     }
 
@@ -6502,16 +6502,16 @@ fn addDbgVar(
     };
 
     if (is_comptime_only and !allow_comptime_debug_info) {
-        std.log.warn("addDbgVar: '{s}' - skipped (type is comptime-only: {f})", .{name, val_ty.fmt(pt)});
+        log.debug("addDbgVar: '{s}' - skipped (type is comptime-only: {f})", .{name, val_ty.fmt(pt)});
         return;
     }
     if (!has_runtime_bits and !is_comptime_only) {
-        std.log.warn("addDbgVar: '{s}' - skipped (type has no runtime bits: {f})", .{name, val_ty.fmt(pt)});
+        log.debug("addDbgVar: '{s}' - skipped (type has no runtime bits: {f})", .{name, val_ty.fmt(pt)});
         return;
     }
     if (try sema.resolveValue(operand)) |operand_val| {
         if (operand_val.canMutateComptimeVarState(zcu)) {
-            std.log.warn("addDbgVar: '{s}' - skipped (can mutate comptime var state)", .{name});
+            log.debug("addDbgVar: '{s}' - skipped (can mutate comptime var state)", .{name});
             return;
         }
     }
@@ -6536,7 +6536,7 @@ fn addDbgVar(
         } },
     });
 
-    std.log.warn("addDbgVar: '{s}' - ADDED (tag: {s}, type: {f})", .{name, @tagName(air_tag), val_ty.fmt(pt)});
+    log.debug("addDbgVar: '{s}' - ADDED (tag: {s}, type: {f})", .{name, @tagName(air_tag), val_ty.fmt(pt)});
 }
 
 pub fn appendAirString(sema: *Sema, str: []const u8) Allocator.Error!Air.NullTerminatedString {
