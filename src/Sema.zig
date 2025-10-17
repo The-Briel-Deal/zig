@@ -6485,8 +6485,20 @@ fn addDbgVar(
         .dbg_var_val, .dbg_arg_inline => operand_ty,
         else => unreachable,
     };
-    if (try val_ty.comptimeOnlySema(pt)) return;
-    if (!(try val_ty.hasRuntimeBitsSema(pt))) return;
+    // Allow comptime-only types like comptime_int to have debug info generated.
+    // The DWARF backend supports these via refValue() for has_comptime_state.
+    // However, some backends may not support all comptime-only types yet.
+    //
+    // For now, we allow comptime_int and comptime_float to pass through for DWARF support.
+    // Other comptime-only types are still filtered out.
+    if (try val_ty.comptimeOnlySema(pt)) {
+        switch (val_ty.zigTypeTag(zcu)) {
+            .comptime_int, .comptime_float => {},
+            else => return,
+        }
+    } else {
+        if (!(try val_ty.hasRuntimeBitsSema(pt))) return;
+    }
     if (try sema.resolveValue(operand)) |operand_val| {
         if (operand_val.canMutateComptimeVarState(zcu)) return;
     }

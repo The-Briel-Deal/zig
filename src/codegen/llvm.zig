@@ -2639,8 +2639,25 @@ pub const Object = struct {
                 try o.debug_type_map.put(gpa, ty, debug_function_type);
                 return debug_function_type;
             },
-            .comptime_int => unreachable,
-            .comptime_float => unreachable,
+            .comptime_int => {
+                // Comptime integers are now allowed in debug info for GDB support.
+                // We represent them as unlimited-precision signed integers.
+                const debug_type = try o.builder.debugSignedType(
+                    try o.builder.metadataString("comptime_int"),
+                    128, // Use a large bit size to indicate arbitrary precision
+                );
+                try o.debug_type_map.put(gpa, ty, debug_type);
+                return debug_type;
+            },
+            .comptime_float => {
+                // Comptime floats are now allowed in debug info for GDB support.
+                const debug_type = try o.builder.debugFloatType(
+                    try o.builder.metadataString("comptime_float"),
+                    128,
+                );
+                try o.debug_type_map.put(gpa, ty, debug_type);
+                return debug_type;
+            },
             .type => unreachable,
             .undefined => unreachable,
             .null => unreachable,
