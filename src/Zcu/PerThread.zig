@@ -277,6 +277,13 @@ pub fn updateFile(
         switch (file.getMode()) {
             .zig => {
                 file.zir = try AstGen.generate(gpa, file.tree.?);
+
+                var stdout_buffer: [4096]u8 align(std.heap.page_size_min) = undefined;
+                var stdout_writer = std.fs.File.stdout().writerStreaming(&stdout_buffer);
+                const stdout_bw = &stdout_writer.interface;
+                try stdout_bw.print("sub_path={s}\n", .{file.path.sub_path});
+                try @import("../print_zir.zig").renderAsText(gpa, file.tree.?, file.zir.?, stdout_bw);
+                try stdout_bw.flush();
                 Zcu.saveZirCache(gpa, cache_file, stat, file.zir.?) catch |err| switch (err) {
                     error.OutOfMemory => |e| return e,
                     else => log.warn("unable to write cached ZIR code for {f} to {f}{s}: {s}", .{
