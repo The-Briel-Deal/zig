@@ -1536,7 +1536,10 @@ pub fn updateFunc(
     var aw: std.Io.Writer.Allocating = .init(gpa);
     defer aw.deinit();
 
-    var debug_wip_nav = if (self.dwarf) |*dwarf| try dwarf.initWipNav(pt, func.owner_nav, sym_index) else null;
+    var debug_wip_nav = if (self.dwarf) |*dwarf| dwarf.initWipNav(pt, func.owner_nav, sym_index) catch |err| switch (err) {
+        error.SkipDebugInfo => null,
+        else => |e| return e,
+    } else null;
     defer if (debug_wip_nav) |*wip_nav| wip_nav.deinit();
 
     codegen.emitFunction(
@@ -1650,7 +1653,10 @@ pub fn updateNav(
             );
             if (@"extern".is_threadlocal and elf_file.base.comp.config.any_non_single_threaded) self.symbol(sym_index).flags.is_tls = true;
             if (self.dwarf) |*dwarf| {
-                var debug_wip_nav = try dwarf.initWipNav(pt, nav_index, sym_index);
+                var debug_wip_nav = dwarf.initWipNav(pt, nav_index, sym_index) catch |err| switch (err) {
+                    error.SkipDebugInfo => return,
+                    else => |e| return e,
+                };
                 defer debug_wip_nav.deinit();
                 dwarf.finishWipNav(pt, nav_index, &debug_wip_nav) catch |err| switch (err) {
                     error.OutOfMemory => return error.OutOfMemory,
@@ -1670,7 +1676,10 @@ pub fn updateNav(
         var aw: std.Io.Writer.Allocating = .init(zcu.gpa);
         defer aw.deinit();
 
-        var debug_wip_nav = if (self.dwarf) |*dwarf| try dwarf.initWipNav(pt, nav_index, sym_index) else null;
+        var debug_wip_nav = if (self.dwarf) |*dwarf| dwarf.initWipNav(pt, nav_index, sym_index) catch |err| switch (err) {
+            error.SkipDebugInfo => null,
+            else => |e| return e,
+        } else null;
         defer if (debug_wip_nav) |*wip_nav| wip_nav.deinit();
 
         codegen.generateSymbol(

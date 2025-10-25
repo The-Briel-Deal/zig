@@ -2589,14 +2589,21 @@ fn getModInfo(dwarf: *Dwarf, unit: Unit.Index) *ModInfo {
     return &dwarf.mods.values()[@intFromEnum(unit)];
 }
 
+fn shouldEmitFileDebugInfo(dwarf: *Dwarf, pt: Zcu.PerThread, file_index: Zcu.File.Index) bool {
+    _ = dwarf;
+    const file = pt.zcu.fileByIndex(file_index);
+    return std.mem.endsWith(u8, file.path.sub_path, "foo.zig");
+}
+
 pub fn initWipNav(
     dwarf: *Dwarf,
     pt: Zcu.PerThread,
     nav_index: InternPool.Nav.Index,
     sym_index: u32,
-) error{ OutOfMemory, CodegenFail }!WipNav {
+) error{ OutOfMemory, CodegenFail, SkipDebugInfo }!WipNav {
     return initWipNavInner(dwarf, pt, nav_index, sym_index) catch |err| switch (err) {
         error.OutOfMemory => error.OutOfMemory,
+        error.SkipDebugInfo => error.SkipDebugInfo,
         else => |e| pt.zcu.codegenFail(nav_index, "failed to init dwarf: {s}", .{@errorName(e)}),
     };
 }
@@ -2613,6 +2620,12 @@ fn initWipNavInner(
     const nav = ip.getNav(nav_index);
     const inst_info = nav.srcInst(ip).resolveFull(ip).?;
     const file = zcu.fileByIndex(inst_info.file);
+
+    // Only emit debug info for files ending with "foo.zig"
+    if (!dwarf.shouldEmitFileDebugInfo(pt, inst_info.file)) {
+        return error.SkipDebugInfo;
+    }
+
     const decl = file.zir.?.getDeclaration(inst_info.inst);
     log.debug("initWipNav({s}:{d}:{d} %{d} = {f})", .{
         file.sub_file_path,
@@ -3036,6 +3049,12 @@ fn updateComptimeNavInner(dwarf: *Dwarf, pt: Zcu.PerThread, nav_index: InternPoo
     const nav = ip.getNav(nav_index);
     const inst_info = nav.srcInst(ip).resolveFull(ip).?;
     const file = zcu.fileByIndex(inst_info.file);
+
+    // Only emit debug info for foo.zig files
+    if (!dwarf.shouldEmitFileDebugInfo(pt, inst_info.file)) {
+        return;
+    }
+
     const decl = file.zir.?.getDeclaration(inst_info.inst);
     log.debug("updateComptimeNav({s}:{d}:{d} %{d} = {f})", .{
         file.sub_file_path,
@@ -4401,6 +4420,12 @@ fn updateContainerTypeWriterError(
 
     const inst_info = ty.typeDeclInst(zcu).?.resolveFull(ip).?;
     const file = zcu.fileByIndex(inst_info.file);
+
+    // Only emit debug info for types from foo.zig files
+    if (!dwarf.shouldEmitFileDebugInfo(pt, inst_info.file)) {
+        return;
+    }
+
     const unit = try dwarf.getUnit(file.mod.?);
     const file_gop = try dwarf.getModInfo(unit).files.getOrPut(dwarf.gpa, inst_info.file);
     if (inst_info.inst == .main_struct_inst) {
@@ -4693,6 +4718,12 @@ pub fn updateLineNumber(dwarf: *Dwarf, zcu: *Zcu, zir_index: InternPool.TrackedI
     const inst_info = zir_index.resolveFull(ip).?;
     assert(inst_info.inst != .main_struct_inst);
     const file = zcu.fileByIndex(inst_info.file);
+
+    // Only update line numbers for foo.zig files
+    if (!std.mem.endsWith(u8, file.path.sub_path, "foo.zig")) {
+        return;
+    }
+
     const decl = file.zir.?.getDeclaration(inst_info.inst);
     log.debug("updateLineNumber({s}:{d}:{d} %{d} = {s})", .{
         file.sub_file_path,
@@ -4744,6 +4775,9 @@ pub fn flush(dwarf: *Dwarf, pt: Zcu.PerThread) FlushError!void {
 fn flushWriterError(dwarf: *Dwarf, pt: Zcu.PerThread) (FlushError || Writer.Error)!void {
     const zcu = pt.zcu;
     const ip = &zcu.intern_pool;
+
+    // If no modules/units were created (all files filtered), skip flush
+    if (dwarf.mods.count() == 0) return;
 
     {
         const type_gop = try dwarf.types.getOrPut(dwarf.gpa, .anyerror_type);

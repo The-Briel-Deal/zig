@@ -849,6 +849,17 @@ pub const Block = struct {
         return zcu.namespacePtr(block.namespace).fileScope(zcu).mod.?;
     }
 
+    fn shouldEmitDebugInfo(block: *Block) bool {
+        if (block.isComptime()) return false;
+        const module = block.ownerModule();
+        if (module.strip) return false;
+
+        const zcu = block.sema.pt.zcu;
+        const file_index = block.getFileScopeIndex(zcu);
+        const file = zcu.fileByIndex(file_index);
+        return mem.endsWith(u8, file.path.sub_path, "foo.zig");
+    }
+
     fn trackZir(block: *Block, inst: Zir.Inst.Index) Allocator.Error!InternPool.TrackedInst.Index {
         const pt = block.sema.pt;
         block.sema.code.assertTrackable(inst);
@@ -6423,7 +6434,7 @@ fn zirSwitchContinue(sema: *Sema, start_block: *Block, inst: Zir.Inst.Index) Com
 }
 
 fn zirDbgStmt(sema: *Sema, block: *Block, inst: Zir.Inst.Index) CompileError!void {
-    if (block.isComptime() or block.ownerModule().strip) return;
+    if (!block.shouldEmitDebugInfo()) return;
 
     const inst_data = sema.code.instructions.items(.data)[@intFromEnum(inst)].dbg_stmt;
 
@@ -6449,7 +6460,7 @@ fn zirDbgStmt(sema: *Sema, block: *Block, inst: Zir.Inst.Index) CompileError!voi
 }
 
 fn zirDbgEmptyStmt(_: *Sema, block: *Block, _: Zir.Inst.Index) CompileError!void {
-    if (block.isComptime() or block.ownerModule().strip) return;
+    if (!block.shouldEmitDebugInfo()) return;
     _ = try block.addNoOp(.dbg_empty_stmt);
 }
 
@@ -6472,7 +6483,7 @@ fn addDbgVar(
     air_tag: Air.Inst.Tag,
     name: []const u8,
 ) CompileError!void {
-    if (block.isComptime() or block.ownerModule().strip) return;
+    if (!block.shouldEmitDebugInfo()) return;
 
     const pt = sema.pt;
     const zcu = pt.zcu;
