@@ -1941,18 +1941,11 @@ pub fn create(gpa: Allocator, arena: Allocator, io: Io, diag: *CreateDiagnostic,
         // The "any" values provided by resolved config only account for
         // explicitly-provided settings. We now make them additionally account
         // for default setting resolution.
-        const any_unwind_tables = options.config.any_unwind_tables or options.root_mod.unwind_tables != .none;
-        const any_non_single_threaded = options.config.any_non_single_threaded or !options.root_mod.single_threaded;
-        const any_sanitize_thread = options.config.any_sanitize_thread or options.root_mod.sanitize_thread;
-        const any_sanitize_c: std.zig.SanitizeC = switch (options.config.any_sanitize_c) {
-            .off => options.root_mod.sanitize_c,
-            .trap => if (options.root_mod.sanitize_c == .full)
-                .full
-            else
-                .trap,
-            .full => .full,
-        };
-        const any_fuzz = options.config.any_fuzz or options.root_mod.fuzz;
+        const any_unwind_tables = false;
+        const any_non_single_threaded = false;
+        const any_sanitize_thread = false;
+        const any_sanitize_c: std.zig.SanitizeC = .off;
+        const any_fuzz = false;
 
         const link_eh_frame_hdr = options.link_eh_frame_hdr or any_unwind_tables;
         const build_id = options.build_id orelse .none;
@@ -1975,27 +1968,28 @@ pub fn create(gpa: Allocator, arena: Allocator, io: Io, diag: *CreateDiagnostic,
         const sysroot = options.sysroot orelse libc_dirs.sysroot;
 
         const compiler_rt_strat: RtStrat = s: {
-            if (options.skip_linker_dependencies) break :s .none;
-            const want = options.want_compiler_rt orelse is_exe_or_dyn_lib;
-            if (!want) break :s .none;
-            const need_llvm = switch (target_util.canBuildLibCompilerRt(target)) {
-                .no => break :s .none, // impossible to build
-                .yes => false,
-                .llvm_only => true,
-            };
-            if (have_zcu and (!need_llvm or use_llvm)) {
-                if (output_mode == .Obj) break :s .zcu;
-                switch (target_util.zigBackend(target, use_llvm)) {
-                    else => {},
-                    .stage2_aarch64, .stage2_x86_64 => if (target.ofmt == .coff) {
-                        break :s if (is_exe_or_dyn_lib and build_options.have_llvm) .dyn_lib else .zcu;
-                    },
-                }
-                if (options.config.use_new_linker) break :s .zcu;
-            }
-            if (need_llvm and !build_options.have_llvm) break :s .none; // impossible to build without llvm
-            if (is_exe_or_dyn_lib) break :s .lib;
-            break :s .obj;
+            break :s .none;
+            // if (options.skip_linker_dependencies) break :s .none;
+            // const want = options.want_compiler_rt orelse is_exe_or_dyn_lib;
+            // if (!want) break :s .none;
+            // const need_llvm = switch (target_util.canBuildLibCompilerRt(target)) {
+            //     .no => break :s .none, // impossible to build
+            //     .yes => false,
+            //     .llvm_only => true,
+            // };
+            // if (have_zcu and (!need_llvm or use_llvm)) {
+            //     if (output_mode == .Obj) break :s .zcu;
+            //     switch (target_util.zigBackend(target, use_llvm)) {
+            //         else => {},
+            //         .stage2_aarch64, .stage2_x86_64 => if (target.ofmt == .coff) {
+            //             break :s if (is_exe_or_dyn_lib and build_options.have_llvm) .dyn_lib else .zcu;
+            //         },
+            //     }
+            //     if (options.config.use_new_linker) break :s .zcu;
+            // }
+            // if (need_llvm and !build_options.have_llvm) break :s .none; // impossible to build without llvm
+            // if (is_exe_or_dyn_lib) break :s .lib;
+            // break :s .obj;
         };
 
         if (compiler_rt_strat == .zcu) {
@@ -2038,28 +2032,29 @@ pub fn create(gpa: Allocator, arena: Allocator, io: Io, diag: *CreateDiagnostic,
         // approach if possible, since the ubsan runtime uses quite a lot of the standard
         // library and this reduces unnecessary bloat.
         const ubsan_rt_strat: RtStrat = s: {
-            if (options.skip_linker_dependencies) break :s .none;
-            const want = options.want_ubsan_rt orelse (any_sanitize_c == .full and is_exe_or_dyn_lib);
-            if (!want) break :s .none;
-            const need_llvm = switch (target_util.canBuildLibUbsanRt(target)) {
-                .no => break :s .none, // impossible to build
-                .yes => false,
-                .llvm_only => true,
-                .llvm_lld_only => if (!options.config.use_lld) {
-                    break :s .none; // only LLD can handle ubsan-rt for this target
-                } else true,
-            };
-            if (have_zcu and (!need_llvm or use_llvm)) {
-                // ubsan-rt's exports use hidden visibility. If we're building a Windows DLL and
-                // exported functions are going to be dllexported, LLVM will complain that
-                // dllexported functions must use default or protected visibility. So we can't use
-                // the ZCU strategy in this case.
-                if (options.config.dll_export_fns) break :s .lib;
-                break :s .zcu;
-            }
-            if (need_llvm and !build_options.have_llvm) break :s .none; // impossible to build without llvm
-            if (is_exe_or_dyn_lib) break :s .lib;
-            break :s .obj;
+            break :s .none;
+            // if (options.skip_linker_dependencies) break :s .none;
+            // const want = options.want_ubsan_rt orelse (any_sanitize_c == .full and is_exe_or_dyn_lib);
+            // if (!want) break :s .none;
+            // const need_llvm = switch (target_util.canBuildLibUbsanRt(target)) {
+            //     .no => break :s .none, // impossible to build
+            //     .yes => false,
+            //     .llvm_only => true,
+            //     .llvm_lld_only => if (!options.config.use_lld) {
+            //         break :s .none; // only LLD can handle ubsan-rt for this target
+            //     } else true,
+            // };
+            // if (have_zcu and (!need_llvm or use_llvm)) {
+            //     // ubsan-rt's exports use hidden visibility. If we're building a Windows DLL and
+            //     // exported functions are going to be dllexported, LLVM will complain that
+            //     // dllexported functions must use default or protected visibility. So we can't use
+            //     // the ZCU strategy in this case.
+            //     if (options.config.dll_export_fns) break :s .lib;
+            //     break :s .zcu;
+            // }
+            // if (need_llvm and !build_options.have_llvm) break :s .none; // impossible to build without llvm
+            // if (is_exe_or_dyn_lib) break :s .lib;
+            // break :s .obj;
         };
 
         if (ubsan_rt_strat == .zcu) {
@@ -2644,9 +2639,7 @@ pub fn create(gpa: Allocator, arena: Allocator, io: Io, diag: *CreateDiagnostic,
                 // jobs are dispatched *after* the link_task_wait_group.wait()
                 // that happens when separateCodegenThreadOk() is false.
             }
-            if (comp.wantBuildLibUnwindFromSource()) {
-                comp.queued_jobs.libunwind = true;
-            }
+            comp.queued_jobs.libunwind = false;
             if (build_options.have_llvm and is_exe_or_dyn_lib and comp.config.link_libcpp) {
                 comp.queued_jobs.libcxx = true;
                 comp.queued_jobs.libcxxabi = true;
@@ -3052,11 +3045,13 @@ pub fn update(comp: *Compilation, main_progress_node: std.Progress.Node) UpdateE
         }
 
         if (zcu.root_mod.deps.get("compiler_rt")) |compiler_rt_mod| {
+            log.debug("GF_DEBUG: compiler_rt", .{});
             zcu.analysis_roots_buffer[zcu.analysis_roots_len] = compiler_rt_mod;
             zcu.analysis_roots_len += 1;
         }
 
         if (zcu.root_mod.deps.get("ubsan_rt")) |ubsan_rt_mod| {
+            log.debug("GF_DEBUG: ubsan_rt", .{});
             zcu.analysis_roots_buffer[zcu.analysis_roots_len] = ubsan_rt_mod;
             zcu.analysis_roots_len += 1;
         }
