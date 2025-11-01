@@ -322,10 +322,10 @@ pub fn resolve(options: Options) ResolveError!Config {
         break :b !import_memory;
     };
 
-    const is_dyn_lib = switch (options.output_mode) {
-        .Obj, .Exe => false,
-        .Lib => link_mode == .dynamic,
-    };
+    // const is_dyn_lib = switch (options.output_mode) {
+    //     .Obj, .Exe => false,
+    //     .Lib => link_mode == .dynamic,
+    // };
 
     // Make a decision on whether to use LLVM backend for machine code generation.
     // Note that using the LLVM backend does not necessarily mean using LLVM libraries.
@@ -364,17 +364,19 @@ pub fn resolve(options: Options) ResolveError!Config {
         // and not an object file or executable.
         if (!use_lib_llvm and options.emit_bin) break :b false;
 
+        // Due to debugging issues with the self hosted compiler, i'm just going to always use llvm by default.
+        break :b true;
         // Prefer LLVM for release builds.
-        if (root_optimize_mode != .Debug) break :b true;
+        // if (root_optimize_mode != .Debug) break :b true;
 
         // load_dynamic_library standalone test not passing on this combination
         // https://github.com/ziglang/zig/issues/24080
-        if (target.os.tag == .macos and is_dyn_lib) break :b true;
+        // if (target.os.tag == .macos and is_dyn_lib) break :b true;
 
         // At this point we would prefer to use our own self-hosted backend,
         // because the compilation speed is better than LLVM. But only do it if
         // we are confident in the robustness of the backend.
-        break :b !target_util.selfHostedBackendIsAsRobustAsLlvm(target);
+        //break :b !target_util.selfHostedBackendIsAsRobustAsLlvm(target);
     };
     const backend = target_util.zigBackend(target, use_llvm);
 
