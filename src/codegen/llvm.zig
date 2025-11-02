@@ -616,6 +616,9 @@ pub const Object = struct {
                     break :blk try zcu.main_mod.root.toAbsolute(comp.dirs, arena);
                 };
 
+                const debug_file_type = try builder.metadataConstant(
+                    try builder.intConst(.i16, std.dwarf.LANG.Zig),
+                );
                 const debug_file = try builder.debugFile(
                     try builder.metadataString(comp.root_name),
                     try builder.metadataString(compile_unit_dir),
@@ -625,6 +628,7 @@ pub const Object = struct {
                 const debug_globals_fwd_ref = try builder.debugForwardReference();
 
                 const debug_compile_unit = try builder.debugCompileUnit(
+                    debug_file_type,
                     debug_file,
                     // Don't use the version string here; LLVM misparses it when it
                     // includes the git revision.

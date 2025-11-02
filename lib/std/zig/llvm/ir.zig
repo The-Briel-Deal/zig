@@ -1626,7 +1626,7 @@ pub const ModuleBlock = struct {
             pub const ops = [_]AbbrevOp{
                 .{ .literal = @intFromEnum(ModuleBlock.MetadataBlock.Code.COMPILE_UNIT) },
                 .{ .literal = 1 }, // is distinct
-                .{ .literal = std.dwarf.LANG.C99 }, // source language
+                MetadataAbbrev, // source language
                 MetadataAbbrev, // file
                 MetadataAbbrev, // producer
                 .{ .fixed = 1 }, // isOptimized
@@ -1649,6 +1649,7 @@ pub const ModuleBlock = struct {
                 .{ .literal = 0 }, // raw SDK
             };
 
+            lang: Builder.Metadata.Optional,
             file: Builder.Metadata.Optional,
             producer: Builder.Metadata.String.Optional,
             is_optimized: bool,

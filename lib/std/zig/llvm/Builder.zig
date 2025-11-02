@@ -8178,6 +8178,7 @@ pub const Metadata = packed struct(u32) {
             optimized: bool,
         };
 
+        lang: Metadata.Optional,
         file: Metadata.Optional,
         producer: Metadata.String.Optional,
         enums: Metadata.Optional,
@@ -12113,6 +12114,7 @@ pub fn debugFile(
 
 pub fn debugCompileUnit(
     self: *Builder,
+    lang: ?Metadata,
     file: ?Metadata,
     producer: ?Metadata.String,
     enums: ?Metadata,
@@ -12120,7 +12122,7 @@ pub fn debugCompileUnit(
     options: Metadata.CompileUnit.Options,
 ) Allocator.Error!Metadata {
     try self.ensureUnusedMetadataCapacity(1, Metadata.CompileUnit, 0);
-    return self.debugCompileUnitAssumeCapacity(file, producer, enums, globals, options);
+    return self.debugCompileUnitAssumeCapacity(lang, file, producer, enums, globals, options);
 }
 
 pub fn debugSubprogram(
@@ -12567,6 +12569,7 @@ fn debugFileAssumeCapacity(
 
 pub fn debugCompileUnitAssumeCapacity(
     self: *Builder,
+    lang: ?Metadata,
     file: ?Metadata,
     producer: ?Metadata.String,
     enums: ?Metadata,
@@ -12577,6 +12580,7 @@ pub fn debugCompileUnitAssumeCapacity(
     return self.metadataDistinctAssumeCapacity(
         if (options.optimized) .@"compile_unit optimized" else .compile_unit,
         Metadata.CompileUnit{
+            .lang = .wrap(lang),
             .file = .wrap(file),
             .producer = .wrap(producer),
             .enums = .wrap(enums),
@@ -14138,6 +14142,7 @@ pub fn toBitcode(self: *Builder, allocator: Allocator, producer: Producer) bitco
                     => |kind| {
                         const extra = self.metadataExtraData(Metadata.CompileUnit, data);
                         try metadata_block.writeAbbrevAdapted(MetadataBlock.CompileUnit{
+                            .lang = extra.lang,
                             .file = extra.file,
                             .producer = extra.producer,
                             .is_optimized = switch (kind) {
