@@ -625,6 +625,7 @@ pub const Object = struct {
                 const debug_globals_fwd_ref = try builder.debugForwardReference();
 
                 const debug_compile_unit = try builder.debugCompileUnit(
+                    std.dwarf.LANG.Zig,
                     debug_file,
                     // Don't use the version string here; LLVM misparses it when it
                     // includes the git revision.
